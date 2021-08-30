@@ -244,3 +244,7 @@ conf_vars.mk
 # GPerf performance
 *.prof
 *.heap
+
+# vscode moose externtion
+*.json
+*.yaml
