@@ -1,5 +1,12 @@
 # 1D wave equation
 # elasticity basic: see (modules/tensor_mechanics/test/tests/ad_elastic/finite_elastic.i)
+# M*accel + K*disp = 0 which is equivalent to
+# density*accel + Div Stress = 0
+# The first term on the left is evaluated using the Inertial force kernel
+# The last term on the left is evaluated using StressDivergenceTensors
+#
+# The displacement at the second, third and fourth node at t = 0.1 are
+# -8.021501116638234119e-02, 2.073994362053969628e-02 and  -5.045094181261772920e-03, respectively
 
 # TODO: test PresetDisplacemenet, see
 # (modules/tensor_mechanics/test/tests/dynamics/prescribed_displacement/3D_QStatic_1_Ramped_Displacement.i)
@@ -8,9 +15,9 @@
 [Mesh]
   type = GeneratedMesh
   dim = 1
-  nx = 10
+  nx = 100
   xmin = 0.0
-  xmax = 1.0
+  xmax = 10.0
 []
 
 [GlobalParams]
@@ -19,7 +26,6 @@
 
 [Variables]
   [./disp_x]
-    scaling = 1e-10
   [../]
 []
 
@@ -39,8 +45,11 @@
 []
 
 [Kernels]
-  [./DynamicTensorMechanics] # zeta*K*vel + K * disp
+  [./solid_x]
+    type = StressDivergenceTensors
+    variable = disp_x
     displacements = 'disp_x'
+    component = 0
     # stiffness_damping_coefficient = 0.000025
   [../]
   [./inertia_x] # M*accel + eta*M*vel
@@ -50,7 +59,7 @@
     acceleration = accel_x
     beta = 0.25 # Newmark time integration
     gamma = 0.5 # Newmark time integration
-    eta = 19.63
+    eta = 0.0
   [../]
 []
 
@@ -86,26 +95,23 @@
   [../]
 []
 
-[Functions]
-  [./displacement_right]
-    type = ParsedFunction
-    value = "if(t <= 1, sin(2*pi*t), 0)"
-  [../]
-[]
-
 [BCs]
   [./leftBC]
-    type = DirichletBC
+    type = ADFunctionDirichletBC
     variable = disp_x
     boundary = left
-    value = 0
+    beta = 0.25
+    function = 'if(t<=1, 0.01*sin(pi*t), 0)'
+    velocity = vel_x
+    acceleration = accel_x
   [../]
-  [./rightBC] # Preset_displacement
-    type = PresetDisplacement
+  [./rightBC]
+    type = ADFunctionDirichletBC
     variable = disp_x
-    function = displacement_right
     boundary = right
     beta = 0.25
+    function = 'if(t<=1, 0.01*sin(pi*t), 0)'
+    # function = '0.01*t'
     velocity = vel_x
     acceleration = accel_x
   [../]
@@ -115,7 +121,7 @@
   [./elasticity]
     type = ComputeIsotropicElasticityTensor
     poissons_ratio = 0.3
-    youngs_modulus = 325e6 #Pa
+    youngs_modulus = 0.01 #Pa
   [../]
   [./strain]
     type = ComputeSmallStrain
@@ -130,7 +136,7 @@
     type = GenericConstantMaterial
     block = 0
     prop_names = density
-    prop_values = 2000 #kg/m3
+    prop_values = 2e-3 #kg/m3
   [../]
 []
 
@@ -141,10 +147,21 @@
   l_tol = 1e-6
   nl_rel_tol = 1e-6
   nl_abs_tol = 1e-6
-  dt = 0.1
+  dt = 1e-2
   timestep_tolerance = 1e-6
+[]
+
+[Postprocessors]
+  [./disp_x_rightBC]
+    type = PointValue
+    point = '10 0 0'
+    variable = disp_x
+  [../]
 []
 
 [Outputs]
   exodus = true
+  [./csv]
+    type = CSV 
+  [../]
 []
